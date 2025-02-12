@@ -2,7 +2,7 @@
 
 Constructing a Chatbot for Public Services is a project that leverages Large Language Models (LLMs) and Neo4j Knowledge Graphs to provide enhanced, user-friendly access to information from the Greek National Catalogue of Services (MITOS). The application is built using Streamlit and offers both a conversational chat interface and interactive graph visualization.
 
-## Demo Video
+## 🎥Demo Video
 
 Watch the demo video [here](https://1drv.ms/v/c/A9927BE78AA24F21/EYTMhmWEfZNDuJK-abq_0IcBFNtsLQL7hhp2erMLyefhyQ?e=BdtO0w).
 
