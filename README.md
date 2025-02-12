@@ -4,7 +4,7 @@ Constructing a Chatbot for Public Services is a project that leverages Large Lan
 
 ## Demo Video
 
-Watch the demo video [here]((https://1drv.ms/v/c/A9927BE78AA24F21/EYTMhmWEfZNDuJK-abq_0IcBFNtsLQL7hhp2erMLyefhyQ?e=BdtO0w).
+Watch the demo video [here](https://1drv.ms/v/c/A9927BE78AA24F21/EYTMhmWEfZNDuJK-abq_0IcBFNtsLQL7hhp2erMLyefhyQ?e=BdtO0w).
 
 
 ## Features
