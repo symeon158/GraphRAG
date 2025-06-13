@@ -1,100 +1,76 @@
-# query_neo4j.py
-import os
-import openai
-from dotenv import load_dotenv
 from neo4j_connector import neo4j_db
+import openai
+import os
+from dotenv import load_dotenv
 
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-def get_graph_data(user_query):
+def full_text_search(user_query, top_k=5):
+    cypher_query = """
+    CALL db.index.fulltext.queryNodes('mitosFullTextIndex', $user_query) 
+    YIELD node, score
+    RETURN node, score
+    ORDER BY score DESC
+    LIMIT $top_k
     """
-    Normal text-only search:
-    Returns nodes and relationships where node.name contains user query.
-    """
-    cypher_query = f"""
-    MATCH (n)-[r]->(m) 
-    WHERE n.name CONTAINS '{user_query}' OR m.name CONTAINS '{user_query}'
-    RETURN n, r, m LIMIT 20
-    """
-    results = neo4j_db.query(cypher_query)
+    records = neo4j_db.query(cypher_query, {
+    "user_query": user_query,
+    "top_k": top_k
+})
     
-    extracted_data = [
+    return [
         {
-            "node_1": record["n"]["name"],
-            "relationship": record["r"].type,
-            "node_2": record["m"]["name"]
-        } 
-        for record in results
+            "node_1": record["node"]["name"],
+            "relationship": "MATCHED_BY_FULLTEXT",
+            "node_2": f"Score: {record['score']:.2f}"
+        }
+        for record in records
     ]
-    return extracted_data
 
-# Initialize the OpenAI client with your API key
-client = openai.OpenAI(api_key = os.getenv("OPENAI_API_KEY"))
+def get_graph_data(user_query):
+    cypher_query = """
+    MATCH (startNode)
+    WHERE startNode.name CONTAINS $user_query
+    CALL apoc.path.subgraphAll(startNode, {
+        maxLevel: 3,
+        relationshipFilter: ">|<"
+    })
+    YIELD relationships
+    UNWIND relationships AS r
+    RETURN DISTINCT
+        startNode.name AS node_1,
+        type(r) AS relationship,
+        endNode(r).name AS node_2
+    LIMIT 200
+    """
+    records = neo4j_db.query(cypher_query, {"user_query": user_query})
+    return [{"node_1": rec["node_1"], "relationship": rec["relationship"], "node_2": rec["node_2"]} for rec in records]
 
 def get_embedding(text):
-    response = client.embeddings.create(
-        input=[text],
-        model="text-embedding-ada-002"
-    )
-    embedding = response.data[0].embedding
-    return embedding
+    client = openai.OpenAI(api_key=openai.api_key)
+    response = client.embeddings.create(input=[text], model="text-embedding-ada-002")
+    return response.data[0].embedding
 
-def hybrid_search(user_query, top_k=5):
-    """
-    Hybrid approach that searches:
-    1) Vector similarity
-    2) Text/fuzzy on node.name
-    3) Keyword-based matching
-    """
-    user_embedding = get_embedding(user_query)  # Generate embedding for user query
-
-    cypher_query = """
+def hybrid_search(user_query: str, top_k: int = 5) -> list[dict]:
+    user_embedding = get_embedding(user_query)
+    cypher = """
     CALL {
-  // 1) Vector Similarity
-  CALL db.index.vector.queryNodes('vector_index', $top_k, $user_embedding)
-  YIELD node, score
-  RETURN node, score
-  
-  UNION
-  
-  // 2) Text/Fuzzy with morphological normalization
-  MATCH (node)
-  WITH node,
-       apoc.text.regreplace(node.name, "(ος|ης|ων|ση|σης|ώσεις)$", "") AS normName,
-       apoc.text.regreplace($user_query, "(ος|ης|ων|ση|σης|ώσεις)$", "") AS normQuery
-  WHERE apoc.text.levenshteinDistance(normName, normQuery) < 4
-        OR normName CONTAINS normQuery
-  RETURN node, 1.0 AS score
-
-  UNION
-  
-  // 3) Keyword-based matches
-  MATCH (node)-[:HAS_KEYWORD]->(k:Keyword)
-  WHERE apoc.text.levenshteinDistance(k.name, $user_query) < 4
-        OR k.name CONTAINS $user_query
-  RETURN node, 1.0 AS score
-}
-RETURN DISTINCT node, score
-ORDER BY score DESC
-LIMIT $top_k
-
+      CALL db.index.vector.queryNodes('vector_index', $top_k, $user_embedding)
+      YIELD node, score RETURN node, score
+      UNION
+      CALL db.index.fulltext.queryNodes('mitosFullTextIndex', $user_query)
+      YIELD node, score RETURN node, score
+    }
+    WITH node, score ORDER BY score DESC LIMIT $top_k
+    CALL apoc.path.subgraphAll(node, { maxLevel: 3, relationshipFilter: ">|<" })
+    YIELD relationships
+    UNWIND relationships AS r
+    RETURN DISTINCT
+        node.name AS node_1,
+        type(r) AS relationship,
+        endNode(r).name AS node_2
+    LIMIT 100
     """
-
-    results = neo4j_db.query(cypher_query, {
-        "top_k": top_k,
-        "user_embedding": user_embedding,
-        "user_query": user_query
-    })
-
-    # Format results for your LLM usage
-    extracted_data = []
-    for record in results:
-        extracted_data.append({
-            "node_1": record.get("name", ""),
-            "relationship": "similar",
-            "node_2": record.get("description", ""),
-            "score": record["score"]
-        })
-    return extracted_data
-
+    records = neo4j_db.query(cypher, {"top_k": top_k, "user_embedding": user_embedding, "user_query": user_query})
+    return [{"node_1": rec["node_1"], "relationship": rec["relationship"], "node_2": rec["node_2"]} for rec in records]
