@@ -13,4 +13,4 @@ class Neo4jConnector:
             return [record for record in result]
 
 # Replace with your Neo4j credentials
-neo4j_db = Neo4jConnector(uri="bolt://localhost:7687", user="neo4j", password="Kaval@85*")
+neo4j_db = Neo4jConnector(uri="bolt://localhost:7687", user="neo4j", password="...")
