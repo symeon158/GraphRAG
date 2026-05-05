@@ -6,7 +6,7 @@ An advanced **Ontology Graph-RAG** chatbot that makes Greek public services genu
 ---
 
 ## 🎥 Demo Video
-[▶️ Watch the demo video](https://1drv.ms/v/c/A9927BE78AA24F21/IQQ9hD36QmNqSphRNEydFNeeASFLYoNWCWuWl991ZnZzd28)
+[▶️ Watch the demo video](https://www.linkedin.com/feed/update/urn:li:activity:7454507172006264832/)
 
 ---
 
